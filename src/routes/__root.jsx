@@ -6,7 +6,7 @@ function RootLayout() {
       <nav>
         <Link to="/">Dashboard</Link> | <Link to="/tickets">Tickets</Link>
       </nav>
-      <Outlet></Outlet>
+      <Outlet />
     </div>
   );
 }

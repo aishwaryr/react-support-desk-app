@@ -30,6 +30,7 @@ export default [
     rules: {
       'react/no-unescaped-entities': 'off',
       'react/prop-types': 'off',
+      'react/self-closing-comp': ['error', { component: true, html: true }],
     },
   },
   prettier,
