@@ -1,13 +1,11 @@
-import { createRootRoute, Outlet, Link } from '@tanstack/react-router';
+import { createRootRoute, Outlet } from '@tanstack/react-router';
+import { Appshell } from '../components/layout/AppShell';
 
 function RootLayout() {
   return (
-    <div>
-      <nav>
-        <Link to="/">Dashboard</Link> | <Link to="/tickets">Tickets</Link>
-      </nav>
+    <Appshell>
       <Outlet />
-    </div>
+    </Appshell>
   );
 }
 
