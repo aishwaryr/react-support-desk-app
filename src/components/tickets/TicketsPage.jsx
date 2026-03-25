@@ -33,7 +33,7 @@ export function TicketsPage() {
         {/*tickets toolbar*/}
         <TicketsToolbar />
         {/*tickets list*/}
-        <TicketsTable />
+        <TicketsTable isLoading={isLoading} data={data} />
         {/*tickets pagination*/}
         <TicketsPagination />
       </div>
