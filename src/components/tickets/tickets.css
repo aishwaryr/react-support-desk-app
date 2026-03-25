@@ -1,1 +1,63 @@
+.tickets-section {
+  width: 100%;
+  min-height: 460px;
+  margin-top: 24px;
+  background: #fff;
+  border: 1px solid #e6e9ef;
+  border-radius: 24px;
+  box-shadow: 0 6px rgba(16, 24, 40, 0.06);
+  display: flex;
+  flex-direction: column;
+}
 
+.tickets-toolbar {
+  padding: 20px;
+  border-bottom: 1px solid #edf0f5;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.tickets-search-wrap {
+  flex: 1;
+  min-width: 220px;
+  max-width: 420px;
+}
+
+.tickets-search {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid #d9deea;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.tickets-filter-group {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tickets-filter {
+  height: 40px;
+  min-width: 120px;
+  padding: 0 10px;
+  border: 1px solid #d9deea;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 14px;
+}
+
+.tickets-list {
+  flex: 1;
+  min-height: 280px;
+  padding: 12px 20px;
+}
+
+.tickets-pagination {
+  padding: 14px 20px 18px;
+  border-top: 1px solid #edf0f5;
+}
