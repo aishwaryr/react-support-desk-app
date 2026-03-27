@@ -18,7 +18,7 @@ export default function TicketsTable({ isLoading, data }) {
         <div key={ticket.id} className="tickets-list-row">
           <div className="ticket-cell">
             <p className="ticket-subject">{ticket.subject}</p>
-            <p className="ticket-id">{ticket.id}</p>
+            <p className="ticket-id">{ticket.publicId}</p>
           </div>
           <span>{ticket.customerName}</span>
           <span>{ticket.priority}</span>

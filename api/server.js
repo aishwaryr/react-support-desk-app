@@ -82,12 +82,84 @@ function makeId(prefix) {
   return `${prefix}_${Date.now().toString(36)}${randomPart}`;
 }
 
+function formatPublicId(number) {
+  return `T-${String(number).padStart(4, '0')}`;
+}
+
+function parsePublicIdNumber(publicId) {
+  if (typeof publicId !== 'string') return null;
+  const match = /^T-(\d+)$/.exec(publicId);
+  if (!match) return null;
+
+  const parsed = Number.parseInt(match[1], 10);
+  if (Number.isNaN(parsed) || parsed <= 0) return null;
+  return parsed;
+}
+
+async function getNextPublicId() {
+  const existing = await all(
+    "SELECT publicId FROM tickets WHERE publicId IS NOT NULL AND publicId != ''"
+  );
+
+  let maxNumber = 0;
+  for (const row of existing) {
+    const parsed = parsePublicIdNumber(row.publicId);
+    if (parsed && parsed > maxNumber) {
+      maxNumber = parsed;
+    }
+  }
+
+  return formatPublicId(maxNumber + 1);
+}
+
+async function ensureTicketPublicIds() {
+  const columns = await all('PRAGMA table_info(tickets)');
+  const hasPublicIdColumn = columns.some(
+    (column) => column.name === 'publicId'
+  );
+
+  if (!hasPublicIdColumn) {
+    await run('ALTER TABLE tickets ADD COLUMN publicId TEXT');
+  }
+
+  const unassignedTickets = await all(
+    "SELECT id FROM tickets WHERE publicId IS NULL OR publicId = '' ORDER BY datetime(createdAt) ASC, id ASC"
+  );
+
+  if (unassignedTickets.length > 0) {
+    let nextNumber = 1;
+    const existing = await all(
+      "SELECT publicId FROM tickets WHERE publicId IS NOT NULL AND publicId != ''"
+    );
+
+    for (const row of existing) {
+      const parsed = parsePublicIdNumber(row.publicId);
+      if (parsed && parsed >= nextNumber) {
+        nextNumber = parsed + 1;
+      }
+    }
+
+    for (const ticket of unassignedTickets) {
+      await run('UPDATE tickets SET publicId = ? WHERE id = ?', [
+        formatPublicId(nextNumber),
+        ticket.id,
+      ]);
+      nextNumber += 1;
+    }
+  }
+
+  await run(
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_tickets_publicId ON tickets(publicId)'
+  );
+}
+
 async function initializeDatabase() {
   await run('PRAGMA foreign_keys = ON');
 
   await run(`
     CREATE TABLE IF NOT EXISTS tickets (
       id TEXT PRIMARY KEY,
+      publicId TEXT UNIQUE,
       subject TEXT NOT NULL,
       customerName TEXT NOT NULL,
       customerEmail TEXT NOT NULL,
@@ -109,6 +181,8 @@ async function initializeDatabase() {
     )
   `);
 
+  await ensureTicketPublicIds();
+
   const existing = await get('SELECT COUNT(*) AS count FROM tickets');
   if (existing.count > 0) return;
 
@@ -120,6 +194,7 @@ async function initializeDatabase() {
     ticketIndex += 1
   ) {
     const ticket = seedTickets[ticketIndex];
+    const publicId = formatPublicId(ticketIndex + 1);
     const createdAt = new Date(
       now.getTime() - (seedTickets.length - ticketIndex) * 3600 * 1000
     ).toISOString();
@@ -130,11 +205,12 @@ async function initializeDatabase() {
 
     await run(
       `
-      INSERT INTO tickets (id, subject, customerName, customerEmail, priority, status, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO tickets (id, publicId, subject, customerName, customerEmail, priority, status, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         ticketId,
+        publicId,
         ticket.subject,
         ticket.customerName,
         ticket.customerEmail,
@@ -186,10 +262,10 @@ app.get('/api/tickets', async (req, res) => {
 
     if (req.query.search) {
       filters.push(
-        '(t.subject LIKE ? OR t.customerName LIKE ? OR t.customerEmail LIKE ?)'
+        '(t.subject LIKE ? OR t.customerName LIKE ? OR t.customerEmail LIKE ? OR t.publicId LIKE ?)'
       );
       const term = `%${req.query.search.trim()}%`;
-      params.push(term, term, term);
+      params.push(term, term, term, term);
     }
 
     if (req.query.status) {
@@ -239,6 +315,7 @@ app.get('/api/tickets', async (req, res) => {
       `
       SELECT
         t.id,
+        t.publicId,
         t.subject,
         t.customerName,
         t.customerEmail,
@@ -347,16 +424,18 @@ app.post('/api/tickets', async (req, res) => {
     }
 
     const ticketId = makeId('t');
+    const publicId = await getNextPublicId();
     const msgId = makeId('m');
     const now = new Date().toISOString();
 
     await run(
       `
-      INSERT INTO tickets (id, subject, customerName, customerEmail, priority, status, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, ?, 'open', ?, ?)
+      INSERT INTO tickets (id, publicId, subject, customerName, customerEmail, priority, status, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?)
       `,
       [
         ticketId,
+        publicId,
         subject.trim(),
         customerName.trim(),
         customerEmail.trim().toLowerCase(),

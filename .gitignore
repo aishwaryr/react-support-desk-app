@@ -1,6 +1,7 @@
 .DS_Store
 node_modules/
 api/node_modules/
+api/data/
 dist/
 docs/ai-context.md
 design/
