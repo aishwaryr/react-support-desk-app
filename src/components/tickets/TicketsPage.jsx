@@ -17,6 +17,14 @@ export function TicketsPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
 
+  function setValue(name, value) {
+    if (name === 'search') setSearch(value);
+    if (name === 'status') setStatus(value);
+    if (name === 'priority') setPriority(value);
+    if (name === 'sortBy') setSortBy(value);
+    if (name === 'sortOrder') setSortOrder(value);
+  }
+
   const { isLoading, data } = useQuery({
     queryKey: [
       'tickets',
@@ -31,7 +39,10 @@ export function TicketsPage() {
     <div className="page tickets-page">
       <div className="tickets-section">
         {/*tickets toolbar*/}
-        <TicketsToolbar />
+        <TicketsToolbar
+          values={{ search, status, priority, sortBy, sortOrder }}
+          setValue={setValue}
+        />
         {/*tickets list*/}
         <TicketsTable isLoading={isLoading} data={data} />
         {/*tickets pagination*/}
