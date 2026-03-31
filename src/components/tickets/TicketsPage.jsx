@@ -5,24 +5,47 @@ import { getTickets } from '../../services/tickets';
 import TicketsToolbar from './TicketsToolbar.jsx';
 import TicketsTable from './TicketsTable.jsx';
 import TicketsPagination from './TicketsPagination';
+import { DEFAULT_FILTER_VALUES, FILTER_KEYS } from './tickets.constants.js';
 
 import './tickets.css';
 
 export function TicketsPage() {
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState('');
-  const [priority, setPriority] = useState('');
-  const [sortBy, setSortBy] = useState('updatedAt');
-  const [sortOrder, setSortOrder] = useState('desc');
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(20);
+  const [search, setSearch] = useState(DEFAULT_FILTER_VALUES.search);
+  const [status, setStatus] = useState(DEFAULT_FILTER_VALUES.status);
+  const [priority, setPriority] = useState(DEFAULT_FILTER_VALUES.priority);
+  const [sortBy, setSortBy] = useState(DEFAULT_FILTER_VALUES.sortBy);
+  const [sortOrder, setSortOrder] = useState(DEFAULT_FILTER_VALUES.sortOrder);
+  const [page, setPage] = useState(DEFAULT_FILTER_VALUES.page);
+  const [limit, setLimit] = useState(DEFAULT_FILTER_VALUES.limit);
 
   function setValue(name, value) {
-    if (name === 'search') setSearch(value);
-    if (name === 'status') setStatus(value);
-    if (name === 'priority') setPriority(value);
-    if (name === 'sortBy') setSortBy(value);
-    if (name === 'sortOrder') setSortOrder(value);
+    if (name === FILTER_KEYS.SEARCH) {
+      setSearch(value);
+      setPage(DEFAULT_FILTER_VALUES.page);
+    }
+    if (name === FILTER_KEYS.STATUS) {
+      setStatus(value);
+      setPage(DEFAULT_FILTER_VALUES.page);
+    }
+    if (name === FILTER_KEYS.PRIORITY) {
+      setPriority(value);
+      setPage(DEFAULT_FILTER_VALUES.page);
+    }
+    if (name === FILTER_KEYS.SORT) {
+      const [nextSortBy, nextSortOrder] = value.split(':');
+      const hasMalformedSortValue = !nextSortBy || !nextSortOrder;
+
+      if (hasMalformedSortValue) {
+        setSortBy(DEFAULT_FILTER_VALUES.sortBy);
+        setSortOrder(DEFAULT_FILTER_VALUES.sortOrder);
+        setPage(DEFAULT_FILTER_VALUES.page);
+        return;
+      }
+
+      setSortBy(nextSortBy);
+      setSortOrder(nextSortOrder);
+      setPage(DEFAULT_FILTER_VALUES.page);
+    }
   }
 
   const { isLoading, data } = useQuery({
@@ -41,6 +64,7 @@ export function TicketsPage() {
         {/*tickets toolbar*/}
         <TicketsToolbar
           values={{ search, status, priority, sortBy, sortOrder }}
+          filterKeys={FILTER_KEYS}
           setValue={setValue}
         />
         {/*tickets list*/}
