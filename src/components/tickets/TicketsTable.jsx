@@ -1,9 +1,15 @@
-export default function TicketsTable({ isLoading, data }) {
+export default function TicketsTable({ isLoading, isError, tickets }) {
   if (isLoading) {
     return <h2>LOADING...</h2>;
   }
 
-  const { data: tickets } = data;
+  if (isError) {
+    return <h2>Oops, something went wrong.</h2>;
+  }
+
+  if (tickets.length === 0) {
+    return <h2>No tickets found.</h2>;
+  }
 
   return (
     <div className="tickets-list">

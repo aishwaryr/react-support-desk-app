@@ -48,7 +48,7 @@ export function TicketsPage() {
     }
   }
 
-  const { isLoading, data } = useQuery({
+  const { isLoading, isError, data } = useQuery({
     queryKey: [
       'tickets',
       { search, status, priority, sortBy, sortOrder, page, limit },
@@ -57,6 +57,8 @@ export function TicketsPage() {
       getTickets({ search, status, priority, sortBy, sortOrder, page, limit }),
     staleTime: 30000,
   });
+
+  const tickets = Array.isArray(data?.data) ? data.data : [];
 
   return (
     <div className="page tickets-page">
@@ -68,7 +70,11 @@ export function TicketsPage() {
           setValue={setValue}
         />
         {/*tickets list*/}
-        <TicketsTable isLoading={isLoading} data={data} />
+        <TicketsTable
+          isLoading={isLoading}
+          isError={isError}
+          tickets={tickets}
+        />
         {/*tickets pagination*/}
         <TicketsPagination />
       </div>
