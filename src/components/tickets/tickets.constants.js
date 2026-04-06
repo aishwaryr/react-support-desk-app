@@ -12,7 +12,7 @@ export const DEFAULT_FILTER_VALUES = {
   sortBy: 'updatedAt',
   sortOrder: 'desc',
   page: 1,
-  limit: 20,
+  limit: 10,
 };
 
 export const STATUS_OPTIONS = [

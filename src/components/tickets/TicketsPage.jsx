@@ -49,6 +49,7 @@ export function TicketsPage() {
   }
 
   const { isLoading, isError, data } = useQuery({
+    // TODO: Tune for fresher ticket data (lower staleTime, refetch on window focus/reconnect, and enable periodic refetch).
     queryKey: [
       'tickets',
       { search, status, priority, sortBy, sortOrder, page, limit },
@@ -59,6 +60,18 @@ export function TicketsPage() {
   });
 
   const tickets = Array.isArray(data?.data) ? data.data : [];
+  const meta = {
+    page: Number.isInteger(data?.meta?.page) ? data.meta.page : 1,
+    limit: Number.isInteger(data?.meta?.limit)
+      ? data.meta.limit
+      : DEFAULT_FILTER_VALUES.limit,
+    total: Number.isInteger(data?.meta?.total) ? data.meta.total : 0,
+    totalPages: Number.isInteger(data?.meta?.totalPages)
+      ? data.meta.totalPages
+      : 1,
+  };
+
+  console.log(meta);
 
   return (
     <div className="page tickets-page">
@@ -76,7 +89,7 @@ export function TicketsPage() {
           tickets={tickets}
         />
         {/*tickets pagination*/}
-        <TicketsPagination />
+        <TicketsPagination {...meta} setPage={setPage} />
       </div>
     </div>
   );
