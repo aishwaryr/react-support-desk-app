@@ -14,6 +14,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 
 const TicketsLazyRouteImport = createFileRoute('/tickets')()
+const TicketsIndexLazyRouteImport = createFileRoute('/tickets/')()
+const TicketsTicketIdLazyRouteImport = createFileRoute('/tickets/$ticketId')()
 
 const TicketsLazyRoute = TicketsLazyRouteImport.update({
   id: '/tickets',
@@ -25,31 +27,48 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TicketsIndexLazyRoute = TicketsIndexLazyRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => TicketsLazyRoute,
+} as any).lazy(() => import('./routes/tickets.index.lazy').then((d) => d.Route))
+const TicketsTicketIdLazyRoute = TicketsTicketIdLazyRouteImport.update({
+  id: '/$ticketId',
+  path: '/$ticketId',
+  getParentRoute: () => TicketsLazyRoute,
+} as any).lazy(() =>
+  import('./routes/tickets.$ticketId.lazy').then((d) => d.Route),
+)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/tickets': typeof TicketsLazyRoute
+  '/tickets': typeof TicketsLazyRouteWithChildren
+  '/tickets/$ticketId': typeof TicketsTicketIdLazyRoute
+  '/tickets/': typeof TicketsIndexLazyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/tickets': typeof TicketsLazyRoute
+  '/tickets/$ticketId': typeof TicketsTicketIdLazyRoute
+  '/tickets': typeof TicketsIndexLazyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/tickets': typeof TicketsLazyRoute
+  '/tickets': typeof TicketsLazyRouteWithChildren
+  '/tickets/$ticketId': typeof TicketsTicketIdLazyRoute
+  '/tickets/': typeof TicketsIndexLazyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/tickets'
+  fullPaths: '/' | '/tickets' | '/tickets/$ticketId' | '/tickets/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/tickets'
-  id: '__root__' | '/' | '/tickets'
+  to: '/' | '/tickets/$ticketId' | '/tickets'
+  id: '__root__' | '/' | '/tickets' | '/tickets/$ticketId' | '/tickets/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  TicketsLazyRoute: typeof TicketsLazyRoute
+  TicketsLazyRoute: typeof TicketsLazyRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -68,12 +87,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/tickets/': {
+      id: '/tickets/'
+      path: '/'
+      fullPath: '/tickets/'
+      preLoaderRoute: typeof TicketsIndexLazyRouteImport
+      parentRoute: typeof TicketsLazyRoute
+    }
+    '/tickets/$ticketId': {
+      id: '/tickets/$ticketId'
+      path: '/$ticketId'
+      fullPath: '/tickets/$ticketId'
+      preLoaderRoute: typeof TicketsTicketIdLazyRouteImport
+      parentRoute: typeof TicketsLazyRoute
+    }
   }
 }
 
+interface TicketsLazyRouteChildren {
+  TicketsTicketIdLazyRoute: typeof TicketsTicketIdLazyRoute
+  TicketsIndexLazyRoute: typeof TicketsIndexLazyRoute
+}
+
+const TicketsLazyRouteChildren: TicketsLazyRouteChildren = {
+  TicketsTicketIdLazyRoute: TicketsTicketIdLazyRoute,
+  TicketsIndexLazyRoute: TicketsIndexLazyRoute,
+}
+
+const TicketsLazyRouteWithChildren = TicketsLazyRoute._addFileChildren(
+  TicketsLazyRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  TicketsLazyRoute: TicketsLazyRoute,
+  TicketsLazyRoute: TicketsLazyRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

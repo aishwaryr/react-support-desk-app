@@ -138,3 +138,185 @@
   font-size: 14px;
   font-weight: 600;
 }
+
+.ticket-detail-shell {
+  width: 100%;
+  margin-top: 24px;
+  background: #fff;
+  border: 1px solid #e6e9ef;
+  border-radius: 24px;
+  box-shadow: 0 6px 20px rgba(16, 24, 40, 0.06);
+  display: flex;
+  flex-direction: column;
+}
+
+.ticket-detail-header {
+  padding: 20px;
+  border-bottom: 1px solid #edf0f5;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ticket-detail-public-id {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: #667085;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ticket-detail-subject {
+  margin: 0;
+  font-size: 20px;
+  color: #1f2430;
+}
+
+.ticket-detail-meta-pills {
+  display: flex;
+  gap: 8px;
+}
+
+.ticket-meta-pill {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.ticket-meta-pill-priority {
+  background: #fff0ea;
+  color: #b54708;
+}
+
+.ticket-meta-pill-status {
+  background: #edf4ff;
+  color: #1849a9;
+}
+
+.ticket-detail-grid {
+  padding: 20px;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+  gap: 16px;
+}
+
+.ticket-thread,
+.ticket-side-card {
+  border: 1px solid #edf0f5;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.ticket-thread-head,
+.ticket-side-card {
+  padding: 16px;
+}
+
+.ticket-thread-title,
+.ticket-side-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1f2430;
+}
+
+.ticket-thread-list {
+  border-top: 1px solid #edf0f5;
+}
+
+.ticket-message-row {
+  padding: 14px 16px;
+  border-bottom: 1px solid #f3f5fa;
+}
+
+.ticket-message-row:last-child {
+  border-bottom: 0;
+}
+
+.ticket-message-meta {
+  margin: 0 0 6px;
+  color: #667085;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ticket-message-sender {
+  font-weight: 600;
+  color: #1f2430;
+}
+
+.ticket-message-dot {
+  color: #98a2b3;
+}
+
+.ticket-message-body {
+  margin: 0;
+  color: #344054;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.ticket-detail-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ticket-side-primary {
+  margin: 10px 0 4px;
+  color: #1f2430;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ticket-side-secondary {
+  margin: 0;
+  color: #667085;
+  font-size: 13px;
+}
+
+.ticket-side-list {
+  margin: 10px 0 0;
+}
+
+.ticket-side-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f3f5fa;
+}
+
+.ticket-side-item:last-child {
+  border-bottom: 0;
+}
+
+.ticket-side-item dt {
+  color: #667085;
+  font-size: 13px;
+}
+
+.ticket-side-item dd {
+  margin: 0;
+  color: #1f2430;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: capitalize;
+  text-align: right;
+}
+
+@media (max-width: 900px) {
+  .ticket-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
