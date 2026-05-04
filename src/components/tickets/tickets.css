@@ -320,3 +320,99 @@
     grid-template-columns: 1fr;
   }
 }
+
+.tickets-section,
+.ticket-detail-shell {
+  background: var(--bg-surface);
+  border-color: var(--border);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+}
+
+.tickets-toolbar,
+.ticket-detail-header,
+.tickets-pagination {
+  border-color: var(--border);
+}
+
+.tickets-search,
+.tickets-filter,
+.tickets-page-btn,
+.ticket-thread,
+.ticket-side-card {
+  background: var(--bg-surface-2);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.tickets-search::placeholder {
+  color: var(--text-muted);
+}
+
+.tickets-list-head {
+  border-bottom-color: var(--border);
+  color: var(--text-muted);
+}
+
+.tickets-list-row,
+.ticket-message-row,
+.ticket-side-item {
+  border-bottom-color: var(--border);
+  color: var(--text);
+}
+
+.ticket-subject,
+.ticket-detail-subject,
+.ticket-thread-title,
+.ticket-side-title,
+.ticket-message-sender,
+.ticket-side-primary,
+.ticket-side-item dd {
+  color: var(--text);
+}
+
+.ticket-id,
+.ticket-detail-public-id,
+.ticket-message-meta,
+.ticket-message-dot,
+.ticket-side-secondary,
+.ticket-side-item dt,
+.tickets-pagination-text {
+  color: var(--text-muted);
+}
+
+.ticket-message-body {
+  color: var(--text);
+}
+
+.ticket-meta-pill-priority {
+  background: rgba(255, 126, 95, 0.18);
+  color: #ffb8a8;
+}
+
+.ticket-meta-pill-status {
+  background: rgba(45, 245, 255, 0.16);
+  color: #8ef8ff;
+}
+
+.ticket-thread-list {
+  border-top-color: var(--border);
+}
+
+.tickets-page-btn {
+  color: var(--text);
+}
+
+.tickets-page-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tickets-page-btn-active {
+  border-color: #2df5ff;
+  background: rgba(45, 245, 255, 0.15);
+  color: #a5fdff;
+}
+
+.tickets-pagination-ellipsis {
+  color: var(--text-muted);
+}
