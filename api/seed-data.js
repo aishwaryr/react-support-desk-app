@@ -5,16 +5,8 @@ const seedTicketsSmall = [
     customerEmail: 'sam.lee@example.com',
     priority: 'high',
     status: 'open',
-    messages: [
-      {
-        sender: 'customer',
-        message: 'I am not receiving the password reset email.',
-      },
-      {
-        sender: 'agent',
-        message: 'Thanks Sam. Can you check your spam folder once?',
-      },
-    ],
+    categoryName: 'Account',
+    description: 'I am not receiving the password reset email.',
   },
   {
     subject: 'Billing issue: charged twice',
@@ -22,16 +14,8 @@ const seedTicketsSmall = [
     customerEmail: 'ava.kim@example.com',
     priority: 'urgent',
     status: 'in_progress',
-    messages: [
-      {
-        sender: 'customer',
-        message: 'I got charged twice for my monthly subscription.',
-      },
-      {
-        sender: 'agent',
-        message: 'Sorry about that. We are verifying the invoice now.',
-      },
-    ],
+    categoryName: 'Billing',
+    description: 'I got charged twice for my monthly subscription.',
   },
   {
     subject: 'Feature request: export CSV',
@@ -39,12 +23,8 @@ const seedTicketsSmall = [
     customerEmail: 'jordan.patel@example.com',
     priority: 'low',
     status: 'waiting_on_customer',
-    messages: [
-      {
-        sender: 'customer',
-        message: 'Could you add CSV export for ticket list?',
-      },
-    ],
+    categoryName: 'Feature Request',
+    description: 'Could you add CSV export for ticket list?',
   },
   {
     subject: 'App is slow on dashboard',
@@ -52,12 +32,8 @@ const seedTicketsSmall = [
     customerEmail: 'nina.rossi@example.com',
     priority: 'medium',
     status: 'open',
-    messages: [
-      {
-        sender: 'customer',
-        message: 'Dashboard takes 8-10 seconds to load.',
-      },
-    ],
+    categoryName: 'Technical',
+    description: 'Dashboard takes 8-10 seconds to load.',
   },
   {
     subject: 'Need invoice for last month',
@@ -65,13 +41,8 @@ const seedTicketsSmall = [
     customerEmail: 'miguel.santos@example.com',
     priority: 'medium',
     status: 'resolved',
-    messages: [
-      { sender: 'customer', message: 'Please send me invoice for February.' },
-      {
-        sender: 'agent',
-        message: 'Invoice sent to your email. Please confirm.',
-      },
-    ],
+    categoryName: 'Billing',
+    description: 'Please send me invoice for February.',
   },
   {
     subject: 'Login fails with SSO',
@@ -79,13 +50,8 @@ const seedTicketsSmall = [
     customerEmail: 'priya.verma@example.com',
     priority: 'high',
     status: 'closed',
-    messages: [
-      { sender: 'customer', message: 'SSO login returns unauthorized.' },
-      {
-        sender: 'agent',
-        message: 'This has been fixed. Please retry and confirm.',
-      },
-    ],
+    categoryName: 'Account',
+    description: 'SSO login returns unauthorized.',
   },
 ];
 
@@ -136,6 +102,13 @@ function createLargeSeedTickets(total = 72) {
   ];
 
   const priorities = ['low', 'medium', 'high', 'urgent'];
+  const categories = [
+    'Billing',
+    'Technical',
+    'Account',
+    'Feature Request',
+    'Other',
+  ];
   const statuses = [
     'open',
     'in_progress',
@@ -153,6 +126,7 @@ function createLargeSeedTickets(total = 72) {
     const customerName = `${firstName} ${lastName}`;
     const customerEmail = `${firstName.toLowerCase()}.${lastName.toLowerCase()}+${i}@example.com`;
     const priority = priorities[(i - 1) % priorities.length];
+    const categoryName = categories[(i - 1) % categories.length];
     const status = statuses[(i - 1) % statuses.length];
 
     tickets.push({
@@ -160,18 +134,9 @@ function createLargeSeedTickets(total = 72) {
       customerName,
       customerEmail,
       priority,
+      categoryName,
       status,
-      messages: [
-        {
-          sender: 'customer',
-          message: `Hi support, issue #${i} started this morning and blocks my workflow.`,
-        },
-        {
-          sender: 'agent',
-          message:
-            'Thanks for reporting this. We are reviewing and will follow up soon.',
-        },
-      ],
+      description: `Hi support, issue #${i} started this morning and blocks my workflow.`,
     });
   }
 

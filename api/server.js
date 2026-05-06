@@ -1,13 +1,50 @@
+/**
+ * Backend API Documentation
+ *
+ * GET /api/health
+ * - Health check endpoint.
+ *
+ * GET /api/tickets
+ * - Returns paginated ticket list.
+ * - Supports query params: search, status, priority, sortBy, sortOrder, page, limit.
+ *
+ * GET /api/tickets/:id
+ * - Returns ticket details including attachments.
+ *
+ * POST /api/tickets
+ * - Creates a ticket with multipart/form-data:
+ *   subject, customerName, customerEmail, description,
+ *   optional priority, optional categoryId, optional attachments[] (images only).
+ *
+ * PATCH /api/tickets/:id
+ * - Updates ticket status and/or priority.
+ */
+
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const multer = require('multer');
 const sqlite3 = require('sqlite3').verbose();
 const { seedTickets } = require('./seed-data');
 
 const app = express();
 const port = 3000;
 
+const dataDir = path.join(__dirname, 'data');
+const uploadsRootDir = path.join(__dirname, 'uploads');
+const ticketUploadsDir = path.join(uploadsRootDir, 'tickets');
+
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+}
+
+if (!fs.existsSync(ticketUploadsDir)) {
+  fs.mkdirSync(ticketUploadsDir, { recursive: true });
+}
+
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static(uploadsRootDir));
 
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
@@ -18,11 +55,6 @@ app.use((req, res, next) => {
   }
   next();
 });
-
-const dataDir = path.join(__dirname, 'data');
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
-}
 
 const dbPath = path.join(dataDir, 'support-desk.sqlite');
 const db = new sqlite3.Database(dbPath);
@@ -35,7 +67,40 @@ const VALID_STATUSES = [
   'resolved',
   'closed',
 ];
-const VALID_SENDERS = ['customer', 'agent'];
+const DEFAULT_CATEGORIES = [
+  'Billing',
+  'Technical',
+  'Account',
+  'Feature Request',
+  'Other',
+];
+const ALLOWED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
+const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024;
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => {
+      cb(null, ticketUploadsDir);
+    },
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname || '').toLowerCase();
+      const sanitizedExt = ext || '.bin';
+      cb(null, `ticket-${Date.now()}-${Math.random().toString(36).slice(2, 10)}${sanitizedExt}`);
+    },
+  }),
+  fileFilter: (_req, file, cb) => {
+    if (!ALLOWED_IMAGE_TYPES.has(file.mimetype)) {
+      const err = new Error('Only png, jpeg, and webp image uploads are allowed');
+      err.code = 'INVALID_FILE_TYPE';
+      return cb(err);
+    }
+    return cb(null, true);
+  },
+  limits: {
+    fileSize: MAX_ATTACHMENT_SIZE,
+    files: 10,
+  },
+});
 
 function run(sql, params = []) {
   return new Promise((resolve, reject) => {
@@ -96,6 +161,30 @@ function parsePublicIdNumber(publicId) {
   return parsed;
 }
 
+function normalizeAttachmentRecord(file, now) {
+  return {
+    id: makeId('a'),
+    originalName: file.originalname,
+    fileName: file.filename,
+    mimeType: file.mimetype,
+    size: file.size,
+    path: `/uploads/tickets/${file.filename}`,
+    createdAt: now,
+  };
+}
+
+function removeUploadedFiles(files = []) {
+  for (const file of files) {
+    try {
+      if (file?.path && fs.existsSync(file.path)) {
+        fs.unlinkSync(file.path);
+      }
+    } catch (error) {
+      console.error('Failed to remove uploaded file:', file?.path, error);
+    }
+  }
+}
+
 async function getNextPublicId() {
   const existing = await all(
     "SELECT publicId FROM tickets WHERE publicId IS NOT NULL AND publicId != ''"
@@ -153,6 +242,99 @@ async function ensureTicketPublicIds() {
   );
 }
 
+async function ensureTicketColumns() {
+  const columns = await all('PRAGMA table_info(tickets)');
+  const hasDescription = columns.some((column) => column.name === 'description');
+  const hasCategoryId = columns.some((column) => column.name === 'categoryId');
+
+  if (!hasDescription) {
+    await run('ALTER TABLE tickets ADD COLUMN description TEXT');
+  }
+
+  if (!hasCategoryId) {
+    await run('ALTER TABLE tickets ADD COLUMN categoryId INTEGER');
+  }
+
+  await run(
+    "UPDATE tickets SET description = COALESCE(NULLIF(TRIM(description), ''), subject)"
+  );
+}
+
+async function ensureCategoriesTable() {
+  await run(`
+    CREATE TABLE IF NOT EXISTS ticket_categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      createdAt TEXT NOT NULL
+    )
+  `);
+
+  const now = new Date().toISOString();
+  for (const categoryName of DEFAULT_CATEGORIES) {
+    await run(
+      `
+      INSERT OR IGNORE INTO ticket_categories (name, createdAt)
+      VALUES (?, ?)
+      `,
+      [categoryName, now]
+    );
+  }
+}
+
+async function ensureAttachmentsTable() {
+  await run(`
+    CREATE TABLE IF NOT EXISTS ticket_attachments (
+      id TEXT PRIMARY KEY,
+      ticketId TEXT NOT NULL,
+      originalName TEXT NOT NULL,
+      fileName TEXT NOT NULL,
+      mimeType TEXT NOT NULL,
+      size INTEGER NOT NULL,
+      path TEXT NOT NULL,
+      createdAt TEXT NOT NULL,
+      FOREIGN KEY (ticketId) REFERENCES tickets(id) ON DELETE CASCADE
+    )
+  `);
+
+  await run(
+    'CREATE INDEX IF NOT EXISTS idx_ticket_attachments_ticketId ON ticket_attachments(ticketId)'
+  );
+}
+
+async function getCategoryIdByName(name) {
+  if (!name) return null;
+  const row = await get(
+    'SELECT id FROM ticket_categories WHERE LOWER(name) = LOWER(?) LIMIT 1',
+    [name]
+  );
+  return row?.id ?? null;
+}
+
+async function getAttachmentsByTicketIds(ticketIds) {
+  if (!Array.isArray(ticketIds) || ticketIds.length === 0) return new Map();
+
+  const placeholders = ticketIds.map(() => '?').join(', ');
+  const rows = await all(
+    `
+    SELECT id, ticketId, originalName, fileName, mimeType, size, path, createdAt
+    FROM ticket_attachments
+    WHERE ticketId IN (${placeholders})
+    ORDER BY datetime(createdAt) ASC
+    `,
+    ticketIds
+  );
+
+  const map = new Map();
+  for (const row of rows) {
+    if (!map.has(row.ticketId)) {
+      map.set(row.ticketId, []);
+    }
+    map.get(row.ticketId).push(row);
+  }
+
+  return map;
+}
+
 async function initializeDatabase() {
   await run('PRAGMA foreign_keys = ON');
 
@@ -165,23 +347,18 @@ async function initializeDatabase() {
       customerEmail TEXT NOT NULL,
       priority TEXT NOT NULL,
       status TEXT NOT NULL,
+      description TEXT,
+      categoryId INTEGER,
       createdAt TEXT NOT NULL,
-      updatedAt TEXT NOT NULL
+      updatedAt TEXT NOT NULL,
+      FOREIGN KEY (categoryId) REFERENCES ticket_categories(id)
     )
   `);
 
-  await run(`
-    CREATE TABLE IF NOT EXISTS messages (
-      id TEXT PRIMARY KEY,
-      ticketId TEXT NOT NULL,
-      sender TEXT NOT NULL,
-      message TEXT NOT NULL,
-      createdAt TEXT NOT NULL,
-      FOREIGN KEY (ticketId) REFERENCES tickets(id) ON DELETE CASCADE
-    )
-  `);
-
+  await ensureTicketColumns();
   await ensureTicketPublicIds();
+  await ensureCategoriesTable();
+  await ensureAttachmentsTable();
 
   const existing = await get('SELECT COUNT(*) AS count FROM tickets');
   if (existing.count > 0) return;
@@ -202,11 +379,12 @@ async function initializeDatabase() {
       now.getTime() - (seedTickets.length - ticketIndex) * 1800 * 1000
     ).toISOString();
     const ticketId = makeId('t');
+    const categoryId = await getCategoryIdByName(ticket.categoryName);
 
     await run(
       `
-      INSERT INTO tickets (id, publicId, subject, customerName, customerEmail, priority, status, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO tickets (id, publicId, subject, customerName, customerEmail, priority, status, description, categoryId, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         ticketId,
@@ -216,34 +394,12 @@ async function initializeDatabase() {
         ticket.customerEmail,
         ticket.priority,
         ticket.status,
+        ticket.description,
+        categoryId,
         createdAt,
         updatedAt,
       ]
     );
-
-    for (
-      let messageIndex = 0;
-      messageIndex < ticket.messages.length;
-      messageIndex += 1
-    ) {
-      const seedMessage = ticket.messages[messageIndex];
-      const messageTime = new Date(
-        new Date(createdAt).getTime() + messageIndex * 600 * 1000
-      ).toISOString();
-      await run(
-        `
-        INSERT INTO messages (id, ticketId, sender, message, createdAt)
-        VALUES (?, ?, ?, ?, ?)
-        `,
-        [
-          makeId('m'),
-          ticketId,
-          seedMessage.sender,
-          seedMessage.message,
-          messageTime,
-        ]
-      );
-    }
   }
 }
 
@@ -262,10 +418,10 @@ app.get('/api/tickets', async (req, res) => {
 
     if (req.query.search) {
       filters.push(
-        '(t.subject LIKE ? OR t.customerName LIKE ? OR t.customerEmail LIKE ? OR t.publicId LIKE ?)'
+        '(t.subject LIKE ? OR t.customerName LIKE ? OR t.customerEmail LIKE ? OR t.publicId LIKE ? OR t.description LIKE ?)'
       );
       const term = `%${req.query.search.trim()}%`;
-      params.push(term, term, term, term);
+      params.push(term, term, term, term, term);
     }
 
     if (req.query.status) {
@@ -321,24 +477,27 @@ app.get('/api/tickets', async (req, res) => {
         t.customerEmail,
         t.priority,
         t.status,
+        t.description,
+        t.categoryId,
+        c.name AS categoryName,
         t.createdAt,
-        t.updatedAt,
-        COUNT(m.id) AS messageCount,
-        MAX(m.createdAt) AS lastMessageAt
+        t.updatedAt
       FROM tickets t
-      LEFT JOIN messages m ON m.ticketId = t.id
+      LEFT JOIN ticket_categories c ON c.id = t.categoryId
       ${whereClause}
-      GROUP BY t.id
       ORDER BY ${orderBy} ${sortOrder}
       LIMIT ? OFFSET ?
       `,
       [...params, limit, offset]
     );
 
+    const ticketIds = rows.map((row) => row.id);
+    const attachmentsByTicketId = await getAttachmentsByTicketIds(ticketIds);
+
     res.json({
       data: rows.map((row) => ({
         ...row,
-        messageCount: Number(row.messageCount || 0),
+        attachments: attachmentsByTicketId.get(row.id) || [],
       })),
       meta: {
         page,
@@ -355,22 +514,46 @@ app.get('/api/tickets', async (req, res) => {
 
 app.get('/api/tickets/:id', async (req, res) => {
   try {
-    const ticket = await get('SELECT * FROM tickets WHERE id = ?', [
-      req.params.id,
-    ]);
+    const ticket = await get(
+      `
+      SELECT
+        t.id,
+        t.publicId,
+        t.subject,
+        t.customerName,
+        t.customerEmail,
+        t.priority,
+        t.status,
+        t.description,
+        t.categoryId,
+        c.name AS categoryName,
+        t.createdAt,
+        t.updatedAt
+      FROM tickets t
+      LEFT JOIN ticket_categories c ON c.id = t.categoryId
+      WHERE t.id = ?
+      `,
+      [req.params.id]
+    );
+
     if (!ticket) {
       return jsonError(res, 404, 'TICKET_NOT_FOUND', 'Ticket not found');
     }
 
-    const messages = await all(
-      'SELECT id, ticketId, sender, message, createdAt FROM messages WHERE ticketId = ? ORDER BY createdAt ASC',
+    const attachments = await all(
+      `
+      SELECT id, ticketId, originalName, fileName, mimeType, size, path, createdAt
+      FROM ticket_attachments
+      WHERE ticketId = ?
+      ORDER BY datetime(createdAt) ASC
+      `,
       [req.params.id]
     );
 
     res.json({
       data: {
         ...ticket,
-        messages,
+        attachments,
       },
     });
   } catch (error) {
@@ -379,19 +562,51 @@ app.get('/api/tickets/:id', async (req, res) => {
   }
 });
 
+app.post('/api/tickets', (req, res, next) => {
+  upload.array('attachments', 10)(req, res, (error) => {
+    if (error) {
+      if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
+        return jsonError(
+          res,
+          400,
+          'VALIDATION_ERROR',
+          'Each attachment must be 5MB or smaller'
+        );
+      }
+
+      if (error?.code === 'INVALID_FILE_TYPE') {
+        return jsonError(
+          res,
+          400,
+          'VALIDATION_ERROR',
+          'Only image/png, image/jpeg, and image/webp files are allowed'
+        );
+      }
+
+      return jsonError(res, 400, 'VALIDATION_ERROR', 'Invalid upload payload');
+    }
+
+    return next();
+  });
+});
+
 app.post('/api/tickets', async (req, res) => {
+  const files = Array.isArray(req.files) ? req.files : [];
+
   try {
-    const {
-      subject,
-      customerName,
-      customerEmail,
-      priority = 'medium',
-      message,
-    } = req.body;
+    const subject = req.body.subject;
+    const customerName = req.body.customerName;
+    const customerEmail = req.body.customerEmail;
+    const priority = req.body.priority || 'medium';
+    const categoryIdRaw = req.body.categoryId;
+    const description = req.body.description || req.body.message;
+
     const details = {};
 
-    if (!subject || typeof subject !== 'string' || !subject.trim())
+    if (!subject || typeof subject !== 'string' || !subject.trim()) {
       details.subject = 'Subject is required';
+    }
+
     if (
       !customerName ||
       typeof customerName !== 'string' ||
@@ -399,6 +614,7 @@ app.post('/api/tickets', async (req, res) => {
     ) {
       details.customerName = 'Customer name is required';
     }
+
     if (
       !customerEmail ||
       typeof customerEmail !== 'string' ||
@@ -406,14 +622,33 @@ app.post('/api/tickets', async (req, res) => {
     ) {
       details.customerEmail = 'Must be a valid email';
     }
+
     if (!VALID_PRIORITIES.includes(priority)) {
       details.priority = `Priority must be one of: ${VALID_PRIORITIES.join(', ')}`;
     }
-    if (!message || typeof message !== 'string' || !message.trim()) {
-      details.message = 'Initial message is required';
+
+    if (!description || typeof description !== 'string' || !description.trim()) {
+      details.description = 'Description is required';
+    }
+
+    let categoryId = null;
+    if (categoryIdRaw != null && String(categoryIdRaw).trim() !== '') {
+      categoryId = Number.parseInt(String(categoryIdRaw), 10);
+      if (Number.isNaN(categoryId) || categoryId <= 0) {
+        details.categoryId = 'Category ID must be a positive integer';
+      } else {
+        const existingCategory = await get(
+          'SELECT id FROM ticket_categories WHERE id = ?',
+          [categoryId]
+        );
+        if (!existingCategory) {
+          details.categoryId = 'Category ID does not exist';
+        }
+      }
     }
 
     if (Object.keys(details).length > 0) {
+      removeUploadedFiles(files);
       return jsonError(
         res,
         400,
@@ -425,13 +660,12 @@ app.post('/api/tickets', async (req, res) => {
 
     const ticketId = makeId('t');
     const publicId = await getNextPublicId();
-    const msgId = makeId('m');
     const now = new Date().toISOString();
 
     await run(
       `
-      INSERT INTO tickets (id, publicId, subject, customerName, customerEmail, priority, status, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?)
+      INSERT INTO tickets (id, publicId, subject, customerName, customerEmail, priority, status, description, categoryId, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?)
       `,
       [
         ticketId,
@@ -440,24 +674,75 @@ app.post('/api/tickets', async (req, res) => {
         customerName.trim(),
         customerEmail.trim().toLowerCase(),
         priority,
+        description.trim(),
+        categoryId,
         now,
         now,
       ]
     );
 
-    await run(
+    for (const file of files) {
+      const attachment = normalizeAttachmentRecord(file, now);
+      await run(
+        `
+        INSERT INTO ticket_attachments (id, ticketId, originalName, fileName, mimeType, size, path, createdAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        [
+          attachment.id,
+          ticketId,
+          attachment.originalName,
+          attachment.fileName,
+          attachment.mimeType,
+          attachment.size,
+          attachment.path,
+          attachment.createdAt,
+        ]
+      );
+    }
+
+    const created = await get(
       `
-      INSERT INTO messages (id, ticketId, sender, message, createdAt)
-      VALUES (?, ?, 'customer', ?, ?)
+      SELECT
+        t.id,
+        t.publicId,
+        t.subject,
+        t.customerName,
+        t.customerEmail,
+        t.priority,
+        t.status,
+        t.description,
+        t.categoryId,
+        c.name AS categoryName,
+        t.createdAt,
+        t.updatedAt
+      FROM tickets t
+      LEFT JOIN ticket_categories c ON c.id = t.categoryId
+      WHERE t.id = ?
       `,
-      [msgId, ticketId, message.trim(), now]
+      [ticketId]
     );
 
-    const created = await get('SELECT * FROM tickets WHERE id = ?', [ticketId]);
-    res.status(201).json({ data: created });
+    const attachments = await all(
+      `
+      SELECT id, ticketId, originalName, fileName, mimeType, size, path, createdAt
+      FROM ticket_attachments
+      WHERE ticketId = ?
+      ORDER BY datetime(createdAt) ASC
+      `,
+      [ticketId]
+    );
+
+    return res.status(201).json({
+      data: {
+        ...created,
+        attachments,
+      },
+    });
   } catch (error) {
     console.error(error);
-    jsonError(res, 500, 'INTERNAL_ERROR', 'Unexpected server error');
+    removeUploadedFiles(files);
+    return jsonError(res, 500, 'INTERNAL_ERROR', 'Unexpected server error');
   }
 });
 
@@ -480,6 +765,7 @@ app.patch('/api/tickets/:id', async (req, res) => {
     const ticket = await get('SELECT * FROM tickets WHERE id = ?', [
       req.params.id,
     ]);
+
     if (!ticket) {
       return jsonError(res, 404, 'TICKET_NOT_FOUND', 'Ticket not found');
     }
@@ -504,56 +790,12 @@ app.patch('/api/tickets/:id', async (req, res) => {
   }
 });
 
-app.post('/api/tickets/:id/messages', async (req, res) => {
-  try {
-    const { sender = 'agent', message } = req.body;
-
-    if (!VALID_SENDERS.includes(sender)) {
-      return jsonError(res, 400, 'VALIDATION_ERROR', 'Invalid sender value');
-    }
-
-    if (!message || typeof message !== 'string' || !message.trim()) {
-      return jsonError(res, 400, 'VALIDATION_ERROR', 'Message is required');
-    }
-
-    const ticket = await get('SELECT * FROM tickets WHERE id = ?', [
-      req.params.id,
-    ]);
-    if (!ticket) {
-      return jsonError(res, 404, 'TICKET_NOT_FOUND', 'Ticket not found');
-    }
-
-    const now = new Date().toISOString();
-    const msg = {
-      id: makeId('m'),
-      ticketId: req.params.id,
-      sender,
-      message: message.trim(),
-      createdAt: now,
-    };
-
-    await run(
-      'INSERT INTO messages (id, ticketId, sender, message, createdAt) VALUES (?, ?, ?, ?, ?)',
-      [msg.id, msg.ticketId, msg.sender, msg.message, msg.createdAt]
-    );
-
-    await run('UPDATE tickets SET updatedAt = ? WHERE id = ?', [
-      now,
-      req.params.id,
-    ]);
-
-    res.status(201).json({ data: msg });
-  } catch (error) {
-    console.error(error);
-    jsonError(res, 500, 'INTERNAL_ERROR', 'Unexpected server error');
-  }
-});
-
 initializeDatabase()
   .then(() => {
     app.listen(port, () => {
       console.log(`API running on http://localhost:${port}`);
       console.log(`SQLite DB: ${dbPath}`);
+      console.log(`Uploads served from: ${uploadsRootDir}`);
     });
   })
   .catch((error) => {
