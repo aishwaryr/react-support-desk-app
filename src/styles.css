@@ -79,15 +79,6 @@ select:focus-visible {
   overflow: hidden;
 }
 
-.top-navbar {
-  height: 68px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-surface);
-  display: flex;
-  align-items: center;
-  padding: 0 20px;
-}
-
 .page-content {
   flex: 1;
   overflow-y: auto;
@@ -98,12 +89,4 @@ select:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 20px;
-}
-
-.page-title {
-  margin: 0;
-  font-size: 28px;
-  line-height: 1.2;
-  font-weight: 700;
-  color: var(--text);
 }
