@@ -6,6 +6,7 @@ import {
 } from '@tanstack/react-router';
 import { Appshell } from '../components/layout/AppShell';
 import Modal from '../components/layout/Modal';
+import { CreateTicketForm } from '../components/create-ticket-form/CreateTicketForm';
 
 function RootLayout() {
   const navigate = useNavigate();
@@ -28,12 +29,7 @@ function RootLayout() {
 
       {isCreateTicketOpen && (
         <Modal onClose={closeModal}>
-          <div>
-            <h2> Create Ticket</h2>
-            <button type="button" onClick={closeModal}>
-              Close
-            </button>
-          </div>
+          <CreateTicketForm onClose={closeModal} />
         </Modal>
       )}
     </Appshell>

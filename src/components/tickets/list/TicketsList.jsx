@@ -7,8 +7,6 @@ import TicketsTable from './TicketsTable.jsx';
 import TicketsPagination from './TicketsPagination';
 import { DEFAULT_FILTER_VALUES, FILTER_KEYS } from '../tickets.constants.js';
 
-import '../tickets.css';
-
 export function TicketsList() {
   const [search, setSearch] = useState(DEFAULT_FILTER_VALUES.search);
   const [status, setStatus] = useState(DEFAULT_FILTER_VALUES.status);
